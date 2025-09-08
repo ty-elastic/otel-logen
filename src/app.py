@@ -126,7 +126,7 @@ def run_threads(config):
         t.join()
 
 config = load_config()
-time.sleep(5)
+time.sleep(1)
 t = Thread(target=run_threads,  args=[config], daemon=False)
 t.start()
 

@@ -4,7 +4,7 @@ import os
 import uuid
 
 from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
-from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler, LogRecord
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.resources import Resource
 
@@ -64,10 +64,10 @@ def make_logger(*, service_name, max_logs_per_second):
     logger = logging.getLogger(service_name)
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
-    return logger, processor
+    return logger, processor, handler
 
-def log_backoff(logger_tuple):
-    processor = logger_tuple[1]
+def log_backoff(processor):
+    
     if processor is not None:
         while len(processor._batch_processor._queue) == processor._batch_processor._max_queue_size:
             time.sleep(BACKLOG_Q_SEND_DELAY)
@@ -77,6 +77,8 @@ def log(logger_tuple, name, timestamp, level, body):
     global start_times
 
     logger = logger_tuple[0]
+    processor = logger_tuple[1]
+    handler = logger_tuple[2]
 
     level_num = LOG_LEVEL_LOOKUP[level]
 
@@ -87,6 +89,6 @@ def log(logger_tuple, name, timestamp, level, body):
     record.created = ct
     record.msecs = ct * 1000
     record.relativeCreated = (record.created - start_times[name]) * 1000
-    log_backoff(logger_tuple)
+    log_backoff(processor)
     logger.handle(record)
 
