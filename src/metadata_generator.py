@@ -43,7 +43,7 @@ def generate_useragent_per_user(users_per_region, ua_generator_options):
 def generate_ipaddress_per_user(users_per_region, regions):
     for region in users_per_region.keys():
         for user in users_per_region[region]:
-            network = ipaddress.ip_network(regions[region]['ip_range'])
+            network = ipaddress.ip_network(regions[region]['client_ip_range'])
             ip_list = [str(ip) for ip in network]
             user['ip_address'] = random.choice(ip_list)
 

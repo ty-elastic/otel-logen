@@ -25,24 +25,28 @@ LOG_LEVEL_LOOKUP = {
 
 start_times = {}
 
-def make_logger(*, service_name, max_logs_per_second):
-    if not DEBUG:       
+def make_logger(*, service_name, max_logs_per_second, regional_attributes, language):
+    if not DEBUG:
+        attributes = {
+            "service.name": service_name,
+            "data_stream.dataset": service_name,
+
+            "k8s.container.name": service_name,
+            "k8s.namespace.name": "default",
+            "k8s.deployment.name": service_name,
+            "k8s.pod.uid": uuid.uuid4().hex,
+            "k8s.pod.name": f"{service_name}-{uuid.uuid4().hex}",
+
+            "container.id": uuid.uuid4().hex
+        }
+        if language is not None:
+            attributes["telemetry.sdk.language"] = language
+        host_uuid = uuid.uuid4().hex
+        for key in regional_attributes.keys():
+            regional_attributes[key] = regional_attributes[key].replace("{host_uuid}", host_uuid)
+        attributes.update(regional_attributes)
         logger_provider = LoggerProvider(
-            resource=Resource.create(
-                {
-                    "service.name": service_name,
-                    "data_stream.dataset": service_name,
-
-                    "k8s.container.name": service_name,
-                    "k8s.namespace.name": "default",
-                    "k8s.deployment.name": service_name,
-                    "k8s.cluster.name": "demo",
-                    "k8s.pod.uid": uuid.uuid4().hex,
-                    "k8s.pod.name": f"{service_name}-{uuid.uuid4().hex}",
-
-                    "container.id": uuid.uuid4().hex
-                }
-            ),
+            resource=Resource.create(attributes),
         )
         if 'COLLECTOR_ADDRESS' in os.environ:
             address = os.environ['COLLECTOR_ADDRESS']
@@ -66,8 +70,15 @@ def make_logger(*, service_name, max_logs_per_second):
     logger.setLevel(logging.INFO)
     return logger, processor, handler
 
+def make_loggers(*, service_name, max_logs_per_second, metadata, language):
+    loggers = {}
+    for region in metadata['users_per_region'].keys():
+        loggers[region] = make_logger(service_name=service_name, max_logs_per_second=max_logs_per_second, 
+                                      regional_attributes=metadata['region'][region]['resource_attributes'],
+                                      language=language)
+    return loggers
+
 def log_backoff(processor):
-    
     if processor is not None:
         while len(processor._batch_processor._queue) == processor._batch_processor._max_queue_size:
             time.sleep(BACKLOG_Q_SEND_DELAY)

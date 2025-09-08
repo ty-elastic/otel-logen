@@ -55,21 +55,21 @@ def run_schedule(thread, global_metadata):
         thread['metadata'] = {}
     if 'messages' not in thread:
         thread['messages'] = {}
+    if 'language' not in thread:
+        thread['language'] = 'unknown'
 
     metadata = global_metadata | thread['metadata']
     schedule = thread['schedule']
     thread_name = thread['name']
     messages = thread['messages']
 
-    loggers = {}
-
     max_lps = 0
     for item in schedule:
         print(f'{item}')
         if 'logs_per_second' in item:
             max_lps = max(max_lps, item['logs_per_second'])
-        if 'name' in item and item['name'] not in loggers:
-            loggers[item['name']] = log.make_logger(service_name=item['name'], max_logs_per_second=max_lps)
+
+    loggers = log.make_loggers(service_name=thread_name, max_logs_per_second=max_lps, metadata=metadata, language=thread['language'])
 
     last_ts = schedule_start = datetime.now(tz=timezone.utc)
     print(f'start @ {schedule_start}')
@@ -92,7 +92,7 @@ def run_schedule(thread, global_metadata):
                 stop = None
 
             print(f'type={item['type']}, start={start}, stop={stop}, interval_s={1/item['logs_per_second']}')
-            last_ts = log_generator.generate(thread_name=thread_name, name=item['name'], generator=item, logger=loggers[item['name']], start_timestamp=start,
+            last_ts = log_generator.generate(thread_name=thread_name, generator=item, loggers=loggers, start_timestamp=start,
                                end_timestamp=stop, logs_per_second=item['logs_per_second'],
                                metadata=metadata, schedule_start=schedule_start, messages=messages)
 

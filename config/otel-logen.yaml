@@ -30,25 +30,44 @@ metadata:
         min: 100
         max: 1000
         swing: 50
+  
   region:
     NA:
-      ip_range: '107.80.0.0/16'
+      client_ip_range: '107.80.0.0/16'
       num_customers: 10
+      resource_attributes:
+        cloud.availability_zone: "us-central1-a"
+        host.name: "k8s-default-pool-{host_uuid}"
+        k8s.node.name: "k8s-default-pool-{host_uuid}"
+        k8s.cluster.name: "k8s-us-central1"
     LATAM:
-      ip_range: '186.189.224.0/20'
+      client_ip_range: '186.189.224.0/20'
       num_customers: 10
+      resource_attributes:
+        cloud.availability_zone: "southamerica-east1-b"
+        host.name: "k8s-default-pool-{host_uuid}"
+        k8s.node.name: "k8s-default-pool-{host_uuid}"
+        k8s.cluster.name: "k8s-southamerica-east1"
     EU:
-      ip_range: '149.254.212.0/24'
+      client_ip_range: '149.254.212.0/24'
       num_customers: 10
-    EMEA:
-      ip_range: '102.65.16.0/20'
-      num_customers: 10
+      resource_attributes:
+        cloud.availability_zone: "europe-west3-a"
+        host.name: "k8s-default-pool-{host_uuid}"
+        k8s.node.name: "k8s-default-pool-{host_uuid}"
+        k8s.cluster.name: "k8s-europe-west3"
     APAC:
-      ip_range: '103.107.52.0/24'
+      client_ip_range: '103.107.52.0/24'
       num_customers: 10
+      resource_attributes:
+        cloud.availability_zone: "asia-east2-c"
+        host.name: "k8s-default-pool-{host_uuid}"
+        k8s.node.name: "k8s-default-pool-{host_uuid}"
+        k8s.cluster.name: "k8s-asia-east2"
 
 threads:
   - name: proxy
+    language: cpp
     metadata:
       api:
         - endpoint: '/trade/request'
@@ -75,6 +94,7 @@ threads:
         name: proxy
 
   - name: trader
+    language: python
 
     messages:
       nominal:
@@ -101,7 +121,6 @@ threads:
         backfill_start_minutes: 30
         backfill_stop_minutes: 15
         stop_minutes: 0.1
-        name: trader
 
       - type: generate_exception
         messages: db_errors
@@ -113,4 +132,3 @@ threads:
       - type: service
         messages: nominal
         logs_per_second: 50
-        name: trader

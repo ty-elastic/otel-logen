@@ -97,7 +97,7 @@ def generate_service_line(*, vars, timestamp, metadata, service, messages):
     lines.append({'body': line, 'level': message['level']})
     return lines
 
-def generate(*, thread_name, name, generator, logger, start_timestamp, end_timestamp, logs_per_second, metadata, schedule_start, messages):
+def generate(*, thread_name, generator, loggers, start_timestamp, end_timestamp, logs_per_second, metadata, schedule_start, messages):
     global g_realtime
 
     timestamp = start_timestamp
@@ -113,7 +113,7 @@ def generate(*, thread_name, name, generator, logger, start_timestamp, end_times
             lines = generate_service_line(vars=vars, timestamp=timestamp, metadata=metadata, service=generator, messages=messages)
 
         for line in lines:
-            log.log(logger, name, timestamp, line['level'], line['body'])
+            log.log(loggers[vars['region']], thread_name, timestamp, line['level'], line['body'])
 
         if timestamp > schedule_start:
             if not g_realtime[thread_name]:
