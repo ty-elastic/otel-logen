@@ -19,9 +19,9 @@ exporters:
     api_key: ${env:ELASTIC_API_KEY} # API key for Elasticsearch authentication.
     
     # to use streams wired mode, set `logs_index: logs` and `logs_dynamic_index.enabled: false`
-    logs_index: logs
+    #logs_index: logs
     logs_dynamic_index:
-      enabled: false
+      enabled: true
 
     metrics_dynamic_index:
       enabled: true
