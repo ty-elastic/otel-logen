@@ -1,0 +1,38 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  batch:
+    send_batch_size: 1000
+    timeout: 1s
+    send_batch_max_size: 1500
+
+exporters:
+  elasticsearch/otel:
+    endpoints: # List of Elasticsearch endpoints.
+      - ${env:ELASTIC_ENDPOINT}
+    api_key: ${env:ELASTIC_API_KEY} # API key for Elasticsearch authentication.
+    logs_index: logs
+    logs_dynamic_index:
+      enabled: false
+    metrics_dynamic_index:
+      enabled: true
+    traces_dynamic_index:
+      enabled: true
+    flush:
+      interval: 1s
+    # Enable in order to skip the SSL certificate Check
+    # tls:
+    #   insecure_skip_verify: true
+    mapping:
+      mode: otel
+
+service:
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [elasticsearch/otel]
