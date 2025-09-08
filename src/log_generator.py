@@ -45,7 +45,7 @@ def generate_nginx_line(*, vars, timestamp, metadata):
     for i in range(retries):
         timestamp_str = send_timestamp.strftime("%d/%b/%Y:%H:%M:%S %z")
 
-        line = form_nginx_line(ip=user['ip_address'],
+        line = form_nginx_line(ip=user['client_ip'],
                             timestamp=timestamp_str,
                             method='POST',
                             url=url,

@@ -45,7 +45,7 @@ def generate_ipaddress_per_user(users_per_region, regions):
         for user in users_per_region[region]:
             network = ipaddress.ip_network(regions[region]['client_ip_range'])
             ip_list = [str(ip) for ip in network]
-            user['ip_address'] = random.choice(ip_list)
+            user['client_ip'] = random.choice(ip_list)
 
 def get_customers(users_per_region):
     users = []
@@ -58,7 +58,9 @@ def generate_vars(metadata):
     vars = {}
     vars['region'] = random.choice(list(metadata['region'].keys()))
     vars['user'] = random.choice(metadata['users_per_region'][vars['region']])
+    vars['client.ip'] = vars['user']['client_ip']
     vars['user.name'] = vars['user']['name']
+    vars['client.user_agent'] = vars['user']['user_agent'].text
 
     symbol = random.choice(list(metadata['stock'].keys()))
     if symbol not in metadata['stock_price']:
