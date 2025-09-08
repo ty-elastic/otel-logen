@@ -1,0 +1,116 @@
+metadata:
+  stock:
+    ZVZZT:
+      price:
+        min: 10
+        max: 200
+        swing: 10
+    ZALM:
+      price:
+        min: 10
+        max: 200
+        swing: 10
+    ZYX:
+      price:
+        min: 10
+        max: 200
+        swing: 10
+    CBAZ:
+      price:
+        min: 10
+        max: 200
+        swing: 10
+    BAA:
+      price:
+        min: 10
+        max: 200
+        swing: 10 
+    OELK:
+      price:
+        min: 100
+        max: 1000
+        swing: 50
+  region:
+    NA:
+      ip_range: '107.80.0.0/16'
+      num_customers: 10
+    LATAM:
+      ip_range: '186.189.224.0/20'
+      num_customers: 10
+    EU:
+      ip_range: '149.254.212.0/24'
+      num_customers: 10
+    EMEA:
+      ip_range: '102.65.16.0/20'
+      num_customers: 10
+    APAC:
+      ip_range: '103.107.52.0/24'
+      num_customers: 10
+
+threads:
+  - name: proxy
+    metadata:
+      api:
+        - endpoint: '/trade/request'
+          payload: 
+            min: 205
+            max: 220
+        - endpoint: '/trade/status'
+          payload: 
+            min: 316
+            max: 340
+    schedule:
+      - type: nginx
+        backfill_start_minutes: 30
+        backfill_stop_minutes: 15
+        logs_per_second: 100
+        name: proxy
+
+      - type: nginx_ua_request_errors
+        browser: chrome
+        region: APAC
+
+      - type: nginx
+        logs_per_second: 100
+        name: proxy
+
+  - name: trader
+
+    messages:
+      nominal:
+        - body: "New market order submitted for {stock.symbol}: Buy {stock.shares} shares at market price. Order ID: {uuid}."
+          level: INFO
+        - body: "Limit order placed for {stock.symbol}: Sell {stock.shares} shares at a limit price of ${stock.price}. Order ID: {uuid}."
+          level: INFO
+        - body: "Order {uuid} for {stock.symbol} successfully executed. Filled {stock.shares} shares at an average price of ${stock.price}."
+          level: INFO
+        - body: "Order {uuid} for {stock.symbol} expired. Limit price not reached within the specified time."
+          level: WARNING
+      db_errors:
+        - body: "Servlet.service() for servlet [dispatcherServlet] in context with path [] threw exception [Request processing failed: java.util.concurrent.ExecutionException: org.springframework.transaction.TransactionSystemException: Could not commit JPA transaction] with root cause"
+          level: ERROR
+        - body: "Failed to connect to the database. Reason: Connection refused."
+          level: ERROR
+        - body: "API call to third-party data provider timed out. Retrying in 5 seconds."
+          level: WARNING
+
+    schedule:
+      - type: service
+        messages: nominal
+        logs_per_second: 50
+        backfill_start_minutes: 30
+        backfill_stop_minutes: 15
+        stop_minutes: 0.1
+        name: trader
+
+      - type: generate_exception
+        messages: db_errors
+        filter:
+          region: APAC
+          percent: 100
+        stop_minutes: 1
+
+      - type: service
+        messages: nominal
+        logs_per_second: 50
+        name: trader

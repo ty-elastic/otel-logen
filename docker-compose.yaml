@@ -6,29 +6,20 @@ services:
     restart: on-failure
     ports:
       - "9003:9003"
-    environment:
+    volumes:
+      - ./config/otel-logen.yaml:/otel-logen/config/otel-logen.yaml
     depends_on:
       collector:
-        condition: service_healthy
+        condition: service_started
 
   collector:
-    image: docker.elastic.co/beats/elastic-agent:8.16.1
+    image: otel/opentelemetry-collector-contrib:0.133.0
     restart: on-failure
-    healthcheck:
-      test: curl --fail http://localhost:13133/ || exit 1
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 1m
     ports:
-      - "4318:4318"
-      - "4319:4319"
+      - "13133:13133"
+      - "4317:4317"
     volumes:
-      - ./src/collector/collector_playback.yml:/collector.yml
-    entrypoint: "/usr/share/elastic-agent/elastic-agent"
-    command: ["otel", "-c", "/collector.yml"]
+      - ./config/collector.yaml:/etc/otelcol-contrib/config.yaml
     environment:
-      ELASTIC_APM_SERVER_ENDPOINT: ${ELASTIC_APM_SERVER_ENDPOINT}
-      ELASTIC_APM_SERVER_SECRET: ${ELASTIC_APM_SERVER_SECRET}
-      ELASTICSEARCH_URL: ${ELASTICSEARCH_URL}
-      ELASTICSEARCH_APIKEY: ${ELASTICSEARCH_APIKEY}
+      ELASTIC_ENDPOINT: ${ELASTIC_ENDPOINT}
+      ELASTIC_API_KEY: ${ELASTIC_API_KEY}

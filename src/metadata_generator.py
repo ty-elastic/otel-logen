@@ -1,5 +1,6 @@
 import random
 import ipaddress
+import uuid
 
 import ua_generator
 from ua_generator.options import Options
@@ -53,6 +54,27 @@ def get_customers(users_per_region):
             users.append(customer)
     return users
 
+def generate_vars(metadata):
+    vars = {}
+    vars['region'] = random.choice(list(metadata['region'].keys()))
+    vars['user'] = random.choice(metadata['users_per_region'][vars['region']])
+    vars['user.name'] = vars['user']['name']
+
+    symbol = random.choice(list(metadata['stock'].keys()))
+    if symbol not in metadata['stock_price']:
+        metadata['stock_price'][symbol] = random.randrange(metadata['stock'][symbol]['price']['min'],metadata['stock'][symbol]['price']['max'])
+    metadata['stock_price'][symbol] = metadata['stock_price'][symbol] + random.randrange(-metadata['stock'][symbol]['price']['swing'],metadata['stock'][symbol]['price']['swing'])
+    if metadata['stock_price'][symbol] <= metadata['stock'][symbol]['price']['min']:
+        metadata['stock_price'][symbol] = metadata['stock'][symbol]['price']['min']
+        
+    vars['stock.symbol'] = symbol
+    vars['stock.shares'] = random.randrange(1,100)
+    vars['stock.price'] =  metadata['stock_price'][symbol]
+
+    vars['uuid'] = uuid.uuid4().hex
+
+    return vars
+
 def generate_request_error_per_browser(*, metadata, browser, region, error=True):
     request_error_per_customer = metadata['request_error_per_customer']
     ua_generator_options = metadata['ua_generator_options']
@@ -73,24 +95,15 @@ def generate_request_error_per_browser(*, metadata, browser, region, error=True)
             print(f'new ua for {browser}')
             user['user_agent'] = ua_generator.generate(browser=browser, options=ua_generator_options)
             if error:
-                print(f"start request error for customer {user}")
-                request_error_per_customer[user] = {'amount': 100, 'retries': ERROR_RETRIES}
+                print(f"start request error for customer {user['name']}")
+                request_error_per_customer[user['name']] = {'amount': 100, 'retries': ERROR_RETRIES}
     
     return request_error_per_customer
 
-def generate_exception(*, metadata, item, error=True):
-    found = None
-    for index, exception in enumerate(metadata['exceptions']):
-        if exception['messages'] == item['messages']:
-            found = index
-            break
-
-    if found is None and error:
-        print(f"starting exception {item}")
-        metadata['exceptions'].append(item)
-    elif found is not None and not error:
-        print(f"stopping exception {item}")
-        del metadata['exceptions'][found]
+def generate_exception(*, metadata, item):
+    print(f"new exception: {item}")
+    metadata['exceptions'].append(item)
+    return metadata['exceptions']
 
 def generate_metadata(global_metadata):
     global_metadata['ua_generator_options'] = make_ua_generator_options()

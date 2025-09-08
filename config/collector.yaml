@@ -11,13 +11,18 @@ processors:
     send_batch_max_size: 1500
 
 exporters:
+  debug:
+
   elasticsearch/otel:
     endpoints: # List of Elasticsearch endpoints.
       - ${env:ELASTIC_ENDPOINT}
     api_key: ${env:ELASTIC_API_KEY} # API key for Elasticsearch authentication.
+    
+    # to use streams wired mode, set `logs_index: logs` and `logs_dynamic_index.enabled: false`
     logs_index: logs
     logs_dynamic_index:
       enabled: false
+
     metrics_dynamic_index:
       enabled: true
     traces_dynamic_index:
@@ -35,4 +40,4 @@ service:
     logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [elasticsearch/otel]
+      exporters: [debug, elasticsearch/otel]

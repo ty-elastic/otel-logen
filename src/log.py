@@ -1,6 +1,7 @@
 import time
 import logging
 import os
+import uuid
 
 from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
@@ -30,7 +31,16 @@ def make_logger(*, service_name, max_logs_per_second):
             resource=Resource.create(
                 {
                     "service.name": service_name,
-                    "data_stream.dataset": service_name
+                    "data_stream.dataset": service_name,
+
+                    "k8s.container.name": service_name,
+                    "k8s.namespace.name": "default",
+                    "k8s.deployment.name": service_name,
+                    "k8s.cluster.name": "demo",
+                    "k8s.pod.uid": uuid.uuid4().hex,
+                    "k8s.pod.name": f"{service_name}-{uuid.uuid4().hex}",
+
+                    "container.id": uuid.uuid4().hex
                 }
             ),
         )
@@ -38,6 +48,7 @@ def make_logger(*, service_name, max_logs_per_second):
             address = os.environ['COLLECTOR_ADDRESS']
         else:
             address = "collector"
+        print(f"sending logs to http://{address}:4317")
         otlp_exporter = OTLPLogExporter(endpoint=f"http://{address}:4317", insecure=True)
         processor = BatchLogRecordProcessor(
             otlp_exporter,
@@ -76,7 +87,6 @@ def log(logger_tuple, name, timestamp, level, body):
     record.created = ct
     record.msecs = ct * 1000
     record.relativeCreated = (record.created - start_times[name]) * 1000
-
     log_backoff(logger_tuple)
     logger.handle(record)
 

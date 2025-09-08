@@ -3,12 +3,13 @@ from datetime import datetime, timezone, timedelta
 import logging
 from threading import Thread
 import yaml
+import time
 
 import log_generator
 import log
 import metadata_generator
 
-g_realtime = {}
+
 g_global_metadata = {}
 
 app = Flask(__name__)
@@ -16,12 +17,7 @@ app.logger.setLevel(logging.INFO)
 
 @app.get('/status/realtime')
 def get_realtime():
-    global g_realtime
-    retval = True
-    for thread_name in g_realtime.keys():
-        if g_realtime[thread_name] is False:
-            retval = False
-
+    retval = log_generator.get_realtime()
     if retval:
         return {"realtime": True}
     else:
@@ -31,20 +27,45 @@ def get_realtime():
 def err_request_ua(browser):
     global g_global_metadata
     region = request.args.get('region', default=None, type=str)
-    return metadata.generate_request_error_per_browser(browser=browser, region=region, metadata=g_global_metadata)
+    return metadata_generator.generate_request_error_per_browser(browser=browser, region=region, metadata=g_global_metadata)
 
-def run_schedule(thread_name, schedule, global_metadata, thread_metadata):
-    global g_realtime
-    g_realtime[thread_name] = False
-    metadata = global_metadata | thread_metadata
+@app.post('/err/exception/<messages>')
+def err_exception(messages):
+    region = request.args.get('region', None, str)
+    percent = request.args.get('percent', 100, int)
+    stop_minutes = request.args.get('stop_minutes', None, int)
+
+    item = {
+        'type': "generate_exception",
+        'messages': messages,
+        'filter': {
+            'percent': percent
+        }
+    }
+
+    if region is not None:
+        item['filter']['region'] = region
+    if stop_minutes is not None:
+        item['stop_minutes'] = stop_minutes
+
+    return metadata_generator.generate_exception(metadata=g_global_metadata, item=item)
+
+def run_schedule(thread, global_metadata):
+    if 'metadata' not in thread:
+        thread['metadata'] = {}
+    if 'messages' not in thread:
+        thread['messages'] = {}
+
+    metadata = global_metadata | thread['metadata']
+    schedule = thread['schedule']
+    thread_name = thread['name']
+    messages = thread['messages']
 
     loggers = {}
 
     max_lps = 0
     for item in schedule:
         print(f'{item}')
-        if 'wired' not in item:
-            item['wired'] = False
         if 'logs_per_second' in item:
             max_lps = max(max_lps, item['logs_per_second'])
         if 'name' in item and item['name'] not in loggers:
@@ -57,28 +78,23 @@ def run_schedule(thread_name, schedule, global_metadata, thread_metadata):
             item['template'] = None
 
         if item['type'] == 'nginx' or item['type'] == 'service':
-            if 'backfill_start_minutes' not in item:
-                start = last_ts
-            else:
+
+            if 'backfill_start_minutes' in item:
                 start = schedule_start - timedelta(minutes=item['backfill_start_minutes'])
+            else:
+                start = last_ts
 
             if 'backfill_stop_minutes' in item:
                 stop = schedule_start - timedelta(minutes=item['backfill_stop_minutes'])
-                throttled = False
-            # real time
+            elif 'stop_minutes' in item:
+                stop = start + timedelta(minutes=item['stop_minutes'])
             else:
-                if not g_realtime[thread_name]:
-                    print("realtime reached")
-                    g_realtime[thread_name] = True
-                throttled = True
-                if 'stop_minutes' in item:
-                    stop = start + timedelta(minutes=item['stop_minutes'])
-                else:
-                    stop = None
+                stop = None
+
             print(f'type={item['type']}, start={start}, stop={stop}, interval_s={1/item['logs_per_second']}')
-            last_ts = log_generator.generate(name=item['name'], generator=item, logger=loggers[item['name']], start_timestamp=start, 
-                               end_timestamp=stop, logs_per_second=item['logs_per_second'], throttled=throttled,
-                               metadata=metadata)
+            last_ts = log_generator.generate(thread_name=thread_name, name=item['name'], generator=item, logger=loggers[item['name']], start_timestamp=start,
+                               end_timestamp=stop, logs_per_second=item['logs_per_second'],
+                               metadata=metadata, schedule_start=schedule_start, messages=messages)
 
         elif item['type'] == 'nginx_ua_request_errors':
             metadata_generator.generate_request_error_per_browser(browser=item['browser'], region=item['region'], metadata=global_metadata)
@@ -88,31 +104,31 @@ def run_schedule(thread_name, schedule, global_metadata, thread_metadata):
 
 def load_config():
     try:
-        with open('config.yaml', 'r') as file:
+        with open('config/otel-logen.yaml', 'r') as file:
             data = yaml.safe_load(file)
             return data
     except FileNotFoundError:
-        print("Error: 'config.yaml' not found.")
+        print("Error: 'otel-logen.yaml' not found.")
     except yaml.YAMLError as e:
         print(f"Error parsing YAML: {e}")
-config = load_config()
 
-def run_threads():
+def run_threads(config):
     global g_global_metadata
     g_global_metadata = config['metadata']
     metadata_generator.generate_metadata(g_global_metadata)
 
     threads = []
     for thread in config['threads']:
-        if 'metadata' not in thread:
-            thread['metadata'] = {}
-        t = Thread(target=run_schedule, args=[thread['name'], thread['schedule'], config['metadata'], thread['metadata']], daemon=False)
+        t = Thread(target=run_schedule, args=[thread, config['metadata']], daemon=False)
         t.start()
         threads.append(t)
     for t in threads:
         t.join()
 
-t = Thread(target=run_threads, daemon=False)
+config = load_config()
+time.sleep(5)
+t = Thread(target=run_threads,  args=[config], daemon=False)
 t.start()
+
 if __name__ == "__main__":
     t.join()
