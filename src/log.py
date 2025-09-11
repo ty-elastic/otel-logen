@@ -8,6 +8,8 @@ from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler, LogRecord
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.resources import Resource
 
+import metadata_generator
+
 BACKLOG_Q_SEND_DELAY = 0.01
 BACKLOG_Q_TIME_S = 60 * 60
 BACKLOG_Q_BATCH_S = 60 * 2
@@ -25,11 +27,10 @@ LOG_LEVEL_LOOKUP = {
 
 start_times = {}
 
-def make_logger(*, service_name, max_logs_per_second, regional_attributes, language):
+def make_logger(*, service_name, max_logs_per_second, regional_attributes, language, mode=None):
     if not DEBUG:
         attributes = {
             "service.name": service_name,
-            "data_stream.dataset": service_name,
 
             "k8s.container.name": service_name,
             "k8s.namespace.name": "default",
@@ -39,6 +40,10 @@ def make_logger(*, service_name, max_logs_per_second, regional_attributes, langu
 
             "container.id": uuid.uuid4().hex
         }
+        if mode == 'wired':
+            attributes['elasticsearch.index'] = 'logs'
+        else:
+            attributes['data_stream.dataset'] = service_name
         if language is not None:
             attributes["telemetry.sdk.language"] = language
         host_uuid = uuid.uuid4().hex
@@ -52,7 +57,7 @@ def make_logger(*, service_name, max_logs_per_second, regional_attributes, langu
             address = os.environ['COLLECTOR_ADDRESS']
         else:
             address = "collector"
-        print(f"sending logs to http://{address}:4317")
+        print(f"sending logs to http://{address}:4317 for {service_name}, {regional_attributes['cloud.availability_zone']}")
         otlp_exporter = OTLPLogExporter(endpoint=f"http://{address}:4317", insecure=True)
         processor = BatchLogRecordProcessor(
             otlp_exporter,
@@ -70,12 +75,13 @@ def make_logger(*, service_name, max_logs_per_second, regional_attributes, langu
     logger.setLevel(logging.INFO)
     return logger, processor, handler
 
-def make_loggers(*, service_name, max_logs_per_second, metadata, language):
+def make_loggers(*, service_name, max_logs_per_second, metadata, language, mode=None):
     loggers = {}
-    for region in metadata['users_per_region'].keys():
+
+    for region in metadata_generator.get_regions(metadata):
         loggers[region] = make_logger(service_name=service_name, max_logs_per_second=max_logs_per_second, 
-                                      regional_attributes=metadata['region'][region]['resource_attributes'],
-                                      language=language)
+                                      regional_attributes=metadata_generator.get_region(metadata, region)['resource_attributes'],
+                                      language=language, mode=mode)
     return loggers
 
 def log_backoff(processor):
@@ -101,5 +107,5 @@ def log(logger_tuple, name, timestamp, level, body):
     record.msecs = ct * 1000
     record.relativeCreated = (record.created - start_times[name]) * 1000
     log_backoff(processor)
-    logger.handle(record)
+    handler.emit(record)
 

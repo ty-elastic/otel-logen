@@ -4,13 +4,15 @@ import logging
 from threading import Thread
 import yaml
 import time
+import csv
 
 import log_generator
 import log
 import metadata_generator
 
-
 g_global_metadata = {}
+g_global_state = {}
+g_thread_state = {}
 
 app = Flask(__name__)
 app.logger.setLevel(logging.INFO)
@@ -27,13 +29,15 @@ def get_realtime():
 def err_request_ua(browser):
     global g_global_metadata
     region = request.args.get('region', default=None, type=str)
-    return metadata_generator.generate_request_error_per_browser(browser=browser, region=region, metadata=g_global_metadata)
+    return metadata_generator.generate_request_error_per_browser(browser=browser, region=region, metadata=g_global_metadata, global_state=g_global_state)
 
-@app.post('/err/exception/<messages>')
-def err_exception(messages):
+@app.post('/err/exception/<thread_name>/<messages>')
+def err_exception(thread_name, messages):
+    global g_thread_state
+
     region = request.args.get('region', None, str)
     percent = request.args.get('percent', 100, int)
-    stop_minutes = request.args.get('stop_minutes', None, int)
+    duration_minutes = request.args.get('duration_minutes', None, int)
 
     item = {
         'type': "generate_exception",
@@ -45,23 +49,43 @@ def err_exception(messages):
 
     if region is not None:
         item['filter']['region'] = region
-    if stop_minutes is not None:
-        item['stop_minutes'] = stop_minutes
+    if duration_minutes is not None:
+        item['duration_minutes'] = duration_minutes
 
-    return metadata_generator.generate_exception(metadata=g_global_metadata, item=item)
+    return metadata_generator.generate_exception(thread_state=g_thread_state[thread_name], item=item)
 
-def run_schedule(thread, global_metadata):
+def prepare_messages(thread_messages, thread_state):
+    for message_name, messages in thread_messages.items():
+        if 'file' in messages:
+            messages['lines'] = []
+            with open(messages['file']['path'], 'r', newline='') as file:
+                if messages['file']['type'] == 'csv':
+                    reader = csv.DictReader(file)
+                    for row in reader:
+                        messages['lines'].append({'body': row['Content'], 'level': row['Level']})
+        if 'order' not in messages:
+            messages['order'] = 'random'
+        else:
+            thread_state['messages'][message_name] = {'idx': 0}
+
+def run_schedule(thread, global_metadata, global_state, thread_state):
     if 'metadata' not in thread:
         thread['metadata'] = {}
     if 'messages' not in thread:
         thread['messages'] = {}
     if 'language' not in thread:
         thread['language'] = 'unknown'
+    if 'mode' not in thread:
+        thread['mode'] = 'classic'
+    if 'format' not in thread:
+        thread['format'] = 'structured'
 
-    metadata = global_metadata | thread['metadata']
     schedule = thread['schedule']
     thread_name = thread['name']
-    messages = thread['messages']
+    thread_messages = thread['messages']
+    metadata = global_metadata | thread['metadata']
+
+    prepare_messages(thread_messages, thread_state)
 
     max_lps = 0
     for item in schedule:
@@ -69,7 +93,7 @@ def run_schedule(thread, global_metadata):
         if 'logs_per_second' in item:
             max_lps = max(max_lps, item['logs_per_second'])
 
-    loggers = log.make_loggers(service_name=thread_name, max_logs_per_second=max_lps, metadata=metadata, language=thread['language'])
+    loggers = log.make_loggers(service_name=thread_name, max_logs_per_second=max_lps, metadata=metadata, language=thread['language'], mode=thread['mode'])
 
     last_ts = schedule_start = datetime.now(tz=timezone.utc)
     print(f'start @ {schedule_start}')
@@ -84,23 +108,23 @@ def run_schedule(thread, global_metadata):
             else:
                 start = last_ts
 
-            if 'backfill_stop_minutes' in item:
-                stop = schedule_start - timedelta(minutes=item['backfill_stop_minutes'])
-            elif 'stop_minutes' in item:
-                stop = start + timedelta(minutes=item['stop_minutes'])
+            if 'backfill_duration_minutes' in item:
+                stop = schedule_start - timedelta(minutes=item['backfill_duration_minutes'])
+            elif 'duration_minutes' in item:
+                stop = start + timedelta(minutes=item['duration_minutes'])
             else:
                 stop = None
 
             print(f'type={item['type']}, start={start}, stop={stop}, interval_s={1/item['logs_per_second']}')
-            last_ts = log_generator.generate(thread_name=thread_name, generator=item, loggers=loggers, start_timestamp=start,
+            last_ts = log_generator.generate(thread=thread, thread_name=thread_name, generator=item, loggers=loggers, start_timestamp=start,
                                end_timestamp=stop, logs_per_second=item['logs_per_second'],
-                               metadata=metadata, schedule_start=schedule_start, messages=messages)
+                               metadata=metadata, messages=thread_messages, thread_state=thread_state, global_state=global_state)
 
         elif item['type'] == 'nginx_ua_request_errors':
-            metadata_generator.generate_request_error_per_browser(browser=item['browser'], region=item['region'], metadata=global_metadata)
+            metadata_generator.generate_request_error_per_browser(browser=item['browser'], region=item['region'], metadata=metadata, global_state=global_state)
 
         elif item['type'] == 'generate_exception':
-            metadata_generator.generate_exception(item=item, metadata=global_metadata)
+            metadata_generator.generate_exception(item=item, thread_state=thread_state)
 
 def load_config():
     try:
@@ -114,12 +138,15 @@ def load_config():
 
 def run_threads(config):
     global g_global_metadata
-    g_global_metadata = config['metadata']
-    metadata_generator.generate_metadata(g_global_metadata)
+    global g_global_state
+    global g_thread_state
+
+    g_global_metadata, g_global_state = metadata_generator.generate_global_metadata_and_state(config)
 
     threads = []
     for thread in config['threads']:
-        t = Thread(target=run_schedule, args=[thread, config['metadata']], daemon=False)
+        g_thread_state[thread['name']] = metadata_generator.generate_thread_state()
+        t = Thread(target=run_schedule, args=[thread, g_global_metadata, g_global_state, g_thread_state[thread['name']]], daemon=False)
         t.start()
         threads.append(t)
     for t in threads:

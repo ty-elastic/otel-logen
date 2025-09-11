@@ -6,9 +6,9 @@ WORKDIR /otel-logen
 COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install --root-user-action=ignore -r requirements.txt
 
-COPY src/*.py .
+COPY src src
 
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 9003
-CMD [ "flask", "run", "--app", "src/app", "--host=0.0.0.0", "-p", "9003"]
+CMD [ "flask", "--app", "src/app", "run", "--host=0.0.0.0", "-p", "9003"]

@@ -15,14 +15,10 @@ exporters:
 
   elasticsearch/otel:
     endpoints: # List of Elasticsearch endpoints.
-      - ${env:ELASTIC_ENDPOINT}
-    api_key: ${env:ELASTIC_API_KEY} # API key for Elasticsearch authentication.
-    
-    # to use streams wired mode, set `logs_index: logs` and `logs_dynamic_index.enabled: false`
-    #logs_index: logs
+      - ${env:ELASTICSEARCH_URL}
+    api_key: ${env:ELASTICSEARCH_APIKEY} # API key for Elasticsearch authentication.
     logs_dynamic_index:
       enabled: true
-
     metrics_dynamic_index:
       enabled: true
     traces_dynamic_index:

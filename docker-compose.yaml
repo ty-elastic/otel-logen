@@ -8,6 +8,7 @@ services:
       - "9003:9003"
     volumes:
       - ./config/otel-logen.yaml:/otel-logen/config/otel-logen.yaml
+      - ./logs:/otel-logen/logs
     depends_on:
       collector:
         condition: service_started
@@ -21,5 +22,5 @@ services:
     volumes:
       - ./config/collector.yaml:/etc/otelcol-contrib/config.yaml
     environment:
-      ELASTIC_ENDPOINT: ${ELASTIC_ENDPOINT}
-      ELASTIC_API_KEY: ${ELASTIC_API_KEY}
+      ELASTICSEARCH_URL: ${ELASTICSEARCH_URL}
+      ELASTICSEARCH_APIKEY: ${ELASTICSEARCH_APIKEY}
