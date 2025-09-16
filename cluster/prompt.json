@@ -8,10 +8,8 @@ Wired streams can be partitioned using the Kibana API.
 * Issue only one request at a time.
 * Wired streams have a parent/child relationship, where 'logs' is always the top-most parent stream.
 * If the user asks you to partition by `service`, abide by the following: 
-    * use the data view 'logs-wired' when querying for documents to partition. 
+    * use the index named 'logs' when querying for documents to partition. 
     * only look at logs from the last 5 minutes when querying for documents to partition. 
-    * only consider documents with the field 'stream.name' equal to 'logs' when querying for documents to partition.
-    * use the field `resource.attributes.service.name` in the data view 'logs-wired'
     * create a partition for each unique value of `resource.attributes.service.name` found in the 'logs' stream.
     * use the exact value of the `resource.attributes.service.name` field.
     * name the child streams 'logs.<service_name>' where '<service_name>' is the exact value of the `resource.attributes.service.name` field.

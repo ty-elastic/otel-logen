@@ -95,7 +95,7 @@ threads:
   - name: hadoop
     language: java
     mode: wired
-    format: raw
+    format: structured
 
     messages:
       nominal:

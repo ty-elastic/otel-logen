@@ -20,9 +20,11 @@ DEBUG = False
 LOG_LEVEL_LOOKUP = {
     'DEBUG': 10,
     'INFO': 20,
+    'WARN': 30,
     'WARNING': 30,
     'ERROR': 40,
-    'CRITICAL': 50
+    'CRITICAL': 50,
+    'FATAL': 50
 }
 
 start_times = {}
