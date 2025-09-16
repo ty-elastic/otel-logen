@@ -16,9 +16,40 @@ curl -X POST "$KIBANA_URL/internal/kibana/settings" \
     --header "kbn-xsrf: true" \
     --header "Authorization: ApiKey $ELASTICSEARCH_APIKEY" \
     --header 'x-elastic-internal-origin: Kibana' \
+    -d '{"changes":{"data_views:cache_max_age":0}}'
+
+
+echo "/internal/kibana/settings"
+curl -X POST "$KIBANA_URL/internal/kibana/settings" \
+    --header 'Content-Type: application/json' \
+    --header "kbn-xsrf: true" \
+    --header "Authorization: ApiKey $ELASTICSEARCH_APIKEY" \
+    --header 'x-elastic-internal-origin: Kibana' \
     -d '{"changes":{"observability:streamsEnableSignificantEvents":true}}'
 
-# # ------------- TEMPLATE
+echo "/internal/kibana/settings"
+curl -X POST "$KIBANA_URL/internal/kibana/settings" \
+    --header 'Content-Type: application/json' \
+    --header "kbn-xsrf: true" \
+    --header "Authorization: ApiKey $ELASTICSEARCH_APIKEY" \
+    --header 'x-elastic-internal-origin: Kibana' \
+    -d '{"changes":{"data_views:cache_max_age":0}}'
+
+# ------------- DATAVIEW
+echo "/api/data_views/data_view"
+curl -X POST "$KIBANA_URL/api/data_views/data_view" \
+    --header 'Content-Type: application/json' \
+    --header "kbn-xsrf: true" \
+    --header "Authorization: ApiKey $ELASTICSEARCH_APIKEY" \
+    -d '
+{
+  "data_view": {
+    "name": "logs-wired",
+    "title": "logs.*,logs"
+  }
+}'
+
+# ------------- TEMPLATE
 
 echo "/_component_template/logs-otel@custom"
 curl -X POST "$ELASTICSEARCH_URL/_component_template/logs-otel@custom" \
@@ -48,7 +79,7 @@ curl -X POST "$ELASTICSEARCH_URL/_component_template/logs-otel@custom" \
   }
 }'
 
-# # ------------- PROMPT
+# ------------- PROMPT
 
 echo "/internal/observability_ai_assistant/kb/user_instructions"
 curl -X PUT "$KIBANA_URL/internal/observability_ai_assistant/kb/user_instructions" \

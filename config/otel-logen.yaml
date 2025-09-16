@@ -74,7 +74,7 @@ metadata:
 threads:
   - name: proxy
     language: cpp
-    mode: wired
+    mode: classic
     format: structured
 
     metadata:
