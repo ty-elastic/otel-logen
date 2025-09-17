@@ -13,7 +13,11 @@ export KIBANA_URL=
 export ELASTICSEARCH_URL=
 export ELASTICSEARCH_APIKEY=
 ```
-2. run `cluster/setup.sh`
+2. Run 
+```
+cd cluster
+./setup.sh
+```
 
 # Use
 1. Setup the following env vars:
@@ -38,7 +42,7 @@ docker compose up
 
 You can ask the AI Assistant to partition for you based on `service.name`:
 ```
-can you partition my logs based on service?
+partition my logs based on service
 ```
 
 You can also partition manually on say `resource.attributes.service.name`
