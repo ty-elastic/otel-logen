@@ -70,13 +70,3 @@ curl -X POST "$ELASTICSEARCH_URL/_component_template/logs-otel@custom" \
     }
   }
 }'
-
-# ------------- PROMPT
-
-echo "/internal/observability_ai_assistant/kb/user_instructions"
-curl -X PUT "$KIBANA_URL/internal/observability_ai_assistant/kb/user_instructions" \
-  --header 'Content-Type: application/json' \
-  --header "kbn-xsrf: true" \
-  --header "Authorization: ApiKey $ELASTICSEARCH_APIKEY" \
-  --header 'x-elastic-internal-origin: Kibana' \
-  -d @prompt.json

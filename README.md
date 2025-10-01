@@ -2,11 +2,10 @@
 
 # Setup
 
-## Elastic
+## Elastic ECH or Serverless or Self-Managed
 1. Create an API Key as a superuser
-2. Open AI Assistant, "Install Knowledge Base"
 
-## Local
+## Machine you are running the tool from
 1. Setup the following env vars:
 ```
 export KIBANA_URL=
@@ -36,13 +35,19 @@ docker compose up
 
 [config/otel-logen.yaml](config/otel-logen.yaml)
 
-# Demo Notes
+* message sources are defined under `thread/messages`
+* name the source (in the example, `nominal`)
 
-## Partitioning
+## canned logs
 
-You can ask the AI Assistant to partition for you based on `service.name`:
+* put structured logs from https://github.com/logpai/loghub in [logs](logs/)
+* add to messages source for thread:
 ```
-partition my logs based on service
+    messages:
+      nominal:
+        file:
+          path: logs/Spark_2k.log_structured.csv
+          type: csv
+        order: loop
 ```
-
-You can also partition manually on say `resource.attributes.service.name`
+* set `order` to `loop` or `random`

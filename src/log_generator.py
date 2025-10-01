@@ -57,7 +57,7 @@ def generate_nginx_line(*, vars, timestamp, metadata, global_state):
                             user_agent=user['user_agent'].text)
         lines.append({'body': line, 'level': "INFO"})
         send_timestamp = send_timestamp + timedelta(seconds=1/1000)
-    return lines
+    return lines, error_request
 
 def var_substitute_line(*, vars, template):
     for k,v in vars.items():
@@ -112,9 +112,12 @@ def get_exception_message(timestamp, vars, thread_state):
 def generate_service_line(*, vars, timestamp, metadata, service, messages, thread_state):
     lines = []
 
+    exception_message = False
     src_messages_id = get_exception_message(timestamp, vars, thread_state)
     if src_messages_id is None:
         src_messages_id = service['messages']
+    else:
+        exception_message = True
     src_messages = messages[src_messages_id]
 
     if src_messages['order'] == 'random':
@@ -128,7 +131,7 @@ def generate_service_line(*, vars, timestamp, metadata, service, messages, threa
             thread_state['messages'][src_messages_id]['idx'] = idx + 1
 
     lines.append({'body': message['body'], 'level': message['level']})
-    return lines
+    return lines, exception_message
 
 def generate(*, thread, thread_name, generator, loggers, start_timestamp, end_timestamp, logs_per_second, metadata, thread_state, global_state, messages):
     global g_realtime
@@ -144,9 +147,9 @@ def generate(*, thread, thread_name, generator, loggers, start_timestamp, end_ti
 
         lines = []
         if generator['type'] == 'nginx':
-            lines = generate_nginx_line(vars=vars, timestamp=timestamp, metadata=metadata, global_state=global_state)
+            lines, exception_message = generate_nginx_line(vars=vars, timestamp=timestamp, metadata=metadata, global_state=global_state)
         elif generator['type'] == 'service':
-            lines = generate_service_line(vars=vars, timestamp=timestamp, metadata=metadata, service=generator, messages=messages, thread_state=thread_state)
+            lines, exception_message = generate_service_line(vars=vars, timestamp=timestamp, metadata=metadata, service=generator, messages=messages, thread_state=thread_state)
 
         for line in lines:
             if thread['format'] == 'raw':
