@@ -1,0 +1,37 @@
+services:
+
+  otel-logen:
+    build:
+      context: .
+    restart: on-failure
+    ports:
+      - "9003:9003"
+    volumes:
+      - ./config/otel-logen.yaml:/otel-logen/config/otel-logen.yaml
+      - ./logs:/otel-logen/logs
+    depends_on:
+      collector:
+        condition: service_started
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:9.2.3
+    restart: on-failure
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./logstash/:/usr/share/logstash/pipeline/
+
+  collector:
+    image: otel/opentelemetry-collector-contrib:0.133.0
+    restart: on-failure
+    ports:
+      - "13133:13133"
+      - "4317:4317"
+    volumes:
+      - ./config/collector-logstash.yaml:/etc/otelcol-contrib/config.yaml
+    environment:
+      ELASTICSEARCH_URL: ${ELASTICSEARCH_URL}
+      ELASTICSEARCH_APIKEY: ${ELASTICSEARCH_APIKEY}
+    depends_on:
+      logstash:
+        condition: service_started
